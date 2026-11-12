@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import find_root, parse_meta  # noqa: E402
+from _common import find_root, meta_path_for, parse_meta  # noqa: E402
 
 for stream in (sys.stdout, sys.stderr):
     try:
@@ -119,7 +119,7 @@ def main():
 
     for day, path in days:
         text = path.read_text(encoding="utf-8")
-        fm, _ = parse_meta(text)
+        fm, _ = parse_meta(text, path)
         sections = split_sections(text)
         date = f"{day:%m-%d}"
 
@@ -168,21 +168,15 @@ def main():
     evidence = "、".join(f"`{b}`" for b in builds) if builds else "- 本周未登记新产物。"
 
     lines = [
-        "<!--",
-        f"week: {week_tag}",
-        f"range: {start:%Y-%m-%d} ~ {end:%Y-%m-%d}",
-        f"days_logged: {len(days)}/{args.days}",
-        "-->",
-        "",
-        f"# {week_tag} · 一句话结论",
+        f"# **{week_tag} · 一句话结论**",
         "",
         "> 待补：把哪条工作流推到哪个阶段，本周最重要的一个变化是什么。",
         "",
-        "## 判断变化",
+        "## **判断变化（本周推翻或修正了哪些前提）**",
         "",
         *(judgement or ["- 本周日志未记录判断变化。"]),
         "",
-        "## 任务",
+        "## **任务**",
         "",
         "### 新增或推进",
         "",
@@ -196,27 +190,33 @@ def main():
         "",
         *(blocked or ["- 无。"]),
         "",
-        "## 风险",
+        "## **风险**",
         "",
         *(newest_by_id(risks) or ["- 无新增。"]),
         "",
-        "## 决策",
+        "## **决策**",
         "",
         *(newest_by_id(decisions) or ["- 无。"]),
         "",
-        "## 证据",
+        "## **证据**",
         "",
         evidence,
         "",
-        "## 下周第一个里程碑",
+        "## **下周第一个里程碑**",
         "",
         "> 待补：一句话，可验收。",
         "",
     ]
     if gaps:
-        lines += ["## 缺口", "", f"- 未记录日期：{'、'.join(gaps)}", ""]
+        lines += ["## **缺口**", "", f"- 未记录日期：{'、'.join(gaps)}", ""]
 
     out_path.write_text("\n".join(lines), encoding="utf-8")
+    # 元数据放在 devlog/.meta/，不出现在周报正文里
+    meta_file = meta_path_for(out_path)
+    meta_file.parent.mkdir(parents=True, exist_ok=True)
+    meta_file.write_text(
+        f"week: {week_tag}\nrange: {start:%Y-%m-%d} ~ {end:%Y-%m-%d}\n"
+        f"days_logged: {len(days)}/{args.days}\n", encoding="utf-8")
 
     print(f"== {week_tag}（{start:%Y-%m-%d} ~ {end:%Y-%m-%d}）==")
     print(f"  日日志 {len(days)}/{args.days} 篇，判断变化 {len(judgement)} 条，"

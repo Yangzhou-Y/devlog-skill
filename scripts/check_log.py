@@ -18,7 +18,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import (CODE_SPAN_RE, LINK_RE, body_lines, find_root,  # noqa: E402
                      is_external, is_link_label, linkable_path,
-                     misplaced_devlog, parse_meta, resolve_target)
+                     misplaced_devlog, parse_meta, resolve_target,
+                     split_inline_meta, strip_bold)
 
 for stream in (sys.stdout, sys.stderr):
     try:
@@ -146,7 +147,7 @@ def check_sections(text, rep):
         if need not in joined:
             rep.error(f"缺少必需章节「## {need}」")
     for head in heads:
-        rep.note(f"章节：{head}")
+        rep.note(f"章节：{strip_bold(head)}")
 
 
 def check_ids(text, ids, rep):
@@ -303,7 +304,7 @@ def check_verification(text, fm, rep):
     parts = SECTION_RE.split(text)
     for i in range(1, len(parts) - 1, 2):
         head, body = parts[i], parts[i + 1]
-        if not re.match(r"[1-9]", head):
+        if not re.match(r"[1-9]", strip_bold(head)):
             continue
         name = f"章节「{head}」"
         f = section_fields(body)
@@ -384,10 +385,10 @@ def main():
     text = log_path.read_text(encoding="utf-8")
 
     rep = Report()
-    fm, body = parse_meta(text)
-    if text.startswith("---"):
-        rep.warn("元数据用的是 --- frontmatter，不少渲染器会把它显示在页面顶部；"
-                 "运行 python scripts/hide_meta.py 改成不可见的注释块")
+    fm, body = parse_meta(text, log_path)
+    if split_inline_meta(text)[0]:
+        rep.warn("元数据还写在日志顶部，预览器会把它显示出来；"
+                 "运行 python scripts/tidy.py 移到 devlog/.meta/ 下")
 
     date = fm.get("date", "")
     m = re.match(r"(\d{4}-\d{2}-\d{2})", date)

@@ -49,6 +49,11 @@ def collect(log_dir):
     return logs, anomalies
 
 
+def strip_bold_all(line):
+    """# 标题行里去掉加粗标记，便于取标题文字。"""
+    return line.replace("**", "")
+
+
 def title_of(path):
     try:
         with open(path, encoding="utf-8") as fh:
@@ -56,7 +61,7 @@ def title_of(path):
                 line = fh.readline()
                 if not line:
                     break
-                m = TITLE_RE.match(line.strip())
+                m = TITLE_RE.match(strip_bold_all(line.strip()))
                 if m:
                     return m.group(1)
     except OSError:

@@ -52,7 +52,9 @@ python scripts/collect_evidence.py --date YYYY-MM-DD
 
 按 `references/template.md` 的结构写。
 
-**顶部元数据（日期、构建、任务编号等）写在 `<!-- ... -->` 注释块里，不要用 `---` frontmatter**：后者在 GitHub 等渲染器里会显示成页面顶部的一张表，干扰阅读；注释块渲染后不可见，脚本照常读取。已有的 `---` 写法运行 `python scripts/hide_meta.py` 一次转换。
+**元数据（日期、构建、任务编号等）不写进日志文件，写在 `devlog/.meta/<日期>.yml`。** 日志顶部不要放 `---` frontmatter，也不要放 `<!-- -->` 注释块：很多预览器会把它们显示出来，只有让元数据完全离开日志文件才看不见。脚本照常读取 `.meta/`。已有日志运行 `python scripts/tidy.py` 一次整理。
+
+**标题加粗。** `#` 与 `##` 标题的文字两端加 `**`，如 `## **0. 判断变化（今天推翻或修正了哪些前提）**`，渲染出来更醒目。`tidy.py` 会给已有日志补上，代码围栏内的行不动。
 
 **「判断变化」记的是认知的变化，不是做了什么。** 写今天推翻或修正了哪个原先的前提，以及因此后续做法有什么不同，句式「原以为 X → 今天发现 Y → 因此改为 Z」。例如「原以为旧版固件可当已知良好基准 → 它也异常 → 排查转向链路侧」。做了什么写在各工作流小节里。当天没有推翻任何前提就写「无」，不要删掉这一节。
 
@@ -76,9 +78,10 @@ python scripts/check_log.py devlog/daily/YYYY-MM-DD.md
 
 校验会检查证据：声称“通过”的小节，「证据」不能为空或写“无”，必须有产物编号、链接、路径或会话号之一；确实缺就明写 `待补`。
 
-写完后依次做两件事，都是几十毫秒：
+写完后依次做三件事，都是几十毫秒：
 
 ```bash
+python scripts/tidy.py        # 元数据移到 .meta/，标题加粗（已整理的文件不会再动）
 python scripts/relink.py      # 把链接补成相对本日志的正确路径，归档搬家后的失效链接也在这里修
 python scripts/index_logs.py  # 刷新 devlog/INDEX.md
 ```
@@ -97,7 +100,7 @@ python scripts/index_logs.py  # 刷新 devlog/INDEX.md
 
 - 素材只用三类：用户指定的旧日志、该日会话、当天的证据快照。没有就写 `待补`，不要用今天的记忆填
 - **只写那一天的日志文件。** `STATE.md`、`TASKS.md` 记录的是“现在”，补写旧日期不得覆盖它们；只有当该日期晚于 `STATE.md` 的“最近更新”时才允许更新
-- 用 `--date` 指定日期收集证据；顶部元数据块里加一行 `backfill: true`，让后来者知道这是事后补的
+- 用 `--date` 指定日期收集证据；`.meta/` 元数据里加一行 `backfill: true`，让后来者知道这是事后补的
 - 任务连续天数以补写日期为准重新推算，不要沿用今天的值
 
 ### 第 5 步 · 汇报
@@ -139,6 +142,7 @@ devlog/
 │       └── 2025-12-30.md
 ├── weekly/
 │   └── 2026-W46.md
+├── .meta/                   每篇日志的元数据（日期、构建、任务编号），不出现在日志里
 ├── .evidence/               证据快照，可删，建议 gitignore
 ├── STATE.md  TASKS.md  RISKS.md  DECISIONS.md  BUILDS.md
 ├── config.yml               工作流与阶段词表
@@ -200,7 +204,7 @@ devlog/
 - `scripts/weekly.py` — 周报草稿汇总（只读日日志）
 - `scripts/index_logs.py` — 生成 `devlog/INDEX.md`
 - `scripts/relink.py` — 补对链接的相对层级，修复搬家后失效的链接
-- `scripts/hide_meta.py` — 把顶部 `---` 元数据改成不可见的注释块
+- `scripts/tidy.py` — 把日志顶部的元数据移到 `devlog/.meta/`，并给标题加粗
 - `scripts/_common.py` — 各脚本共用的定位、元数据与链接工具
 - `assets/` — 六份文档骨架
 - `install.py` — 安装到指定的一个 agent

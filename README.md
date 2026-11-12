@@ -94,6 +94,7 @@ devlog/
 ├── daily/2026-11-11.md        一天一个文件，文件名即日期
 ├── daily/2025/                跨年后把上一年整体移进来
 ├── weekly/2026-W46.md
+├── .meta/                     每篇日志的元数据，不出现在日志里
 ├── .evidence/                 证据快照，可删，建议加进项目 .gitignore
 ├── STATE.md  TASKS.md  RISKS.md  DECISIONS.md  BUILDS.md
 ├── config.yml                 工作流与阶段词表
@@ -101,6 +102,7 @@ devlog/
 ```
 
 ```bash
+python scripts/tidy.py         # 元数据移到 .meta/、标题加粗
 python scripts/relink.py       # 补对链接层级；日志归档搬家后也用它修复
 python scripts/index_logs.py   # 刷新索引
 ```
@@ -123,7 +125,7 @@ python scripts/weekly.py --end 2026-11-11     # 汇总最近 7 天
 
 | 检查 | 级别 |
 |---|---|
-| 顶部元数据的日期与文件名一致 | ERROR |
+| `.meta/` 里的日期与文件名一致 | ERROR |
 | 有「判断变化」「明早第一件事」两节 | ERROR |
 | 引用的 `B-` `T-` `R-` `D-` 编号都已登记 | ERROR |
 | 相对链接存在、无绝对路径 | ERROR |

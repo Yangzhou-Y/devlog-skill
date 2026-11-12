@@ -80,7 +80,7 @@ def main():
     out = (FIXTURE / "devlog" / "weekly" / "2026-W46.md")
     if wk.returncode == 0 and out.exists():
         content = out.read_text(encoding="utf-8")
-        checks = ["## 判断变化", "## 任务", "## 下周第一个里程碑", "未记录日期"]
+        checks = ["## **判断变化", "## **任务**", "## **下周第一个里程碑**", "未记录日期"]
         missing = [c for c in checks if c not in content]
         if missing:
             failed += 1

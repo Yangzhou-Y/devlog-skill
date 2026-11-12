@@ -96,20 +96,53 @@ def _parse_kv(block):
     return fm
 
 
-def parse_meta(text):
-    """返回 (元数据字典, 正文)。
+def meta_path_for(log_path):
+    """某篇日志对应的元数据文件。
 
-    元数据放在文件顶部的 HTML 注释块里，渲染后不可见（推荐）。
-    也兼容旧的 --- frontmatter，它在不少渲染器里会显示在页面顶部。
+    日志在 devlog/ 下：devlog/.meta/<日期>.yml（所有层级共用一个目录）；
+    否则放在日志同级的 .meta/ 里。元数据不出现在日志正文，预览时完全不可见。
     """
+    log_path = Path(log_path)
+    for p in log_path.parents:
+        if p.name == "devlog":
+            return p / ".meta" / (log_path.stem + ".yml")
+    return log_path.parent / ".meta" / (log_path.stem + ".yml")
+
+
+def split_inline_meta(text):
+    """取出正文顶部的内联元数据（旧写法）：返回 (字典, 去掉元数据后的正文)。"""
     m = META_COMMENT_RE.match(text)
     if m:
-        return _parse_kv(m.group(1)), text[m.end():]
+        return _parse_kv(m.group(1)), text[m.end():].lstrip("\n")
     if text.startswith("---"):
         end = text.find("\n---", 3)
         if end != -1:
-            return _parse_kv(text[3:end]), text[end + 4:]
+            return _parse_kv(text[3:end]), text[end + 4:].lstrip("\n")
     return {}, text
+
+
+def parse_meta(text, path=None):
+    """返回 (元数据字典, 正文)。
+
+    优先读旁边的元数据文件；没有就兼容读正文顶部的内联写法
+    （--- frontmatter 或 <!-- --> 注释块，不少预览器会把它们显示出来）。
+    """
+    inline, body = split_inline_meta(text)
+    if path is not None:
+        mp = meta_path_for(path)
+        if mp.exists():
+            data = _parse_kv(mp.read_text(encoding="utf-8"))
+            data.update(inline)
+            return data, body
+    return inline, body
+
+
+def strip_bold(s):
+    """去掉标题文字两端的 ** 加粗标记。"""
+    s = s.strip()
+    if s.startswith("**") and s.endswith("**") and len(s) > 4:
+        s = s[2:-2].strip()
+    return s
 
 
 def body_lines(text):
