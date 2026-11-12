@@ -84,12 +84,47 @@ def relative_link(base_dir, dest):
     return encode_link(rel)
 
 
+META_COMMENT_RE = re.compile(r"\A\s*<!--(.*?)-->[ \t]*\n?", re.S)
+
+
+def _parse_kv(block):
+    fm = {}
+    for line in block.splitlines():
+        if ":" in line and not line.startswith((" ", "\t")):
+            k, v = line.split(":", 1)
+            fm[k.strip()] = v.strip()
+    return fm
+
+
+def parse_meta(text):
+    """返回 (元数据字典, 正文)。
+
+    元数据放在文件顶部的 HTML 注释块里，渲染后不可见（推荐）。
+    也兼容旧的 --- frontmatter，它在不少渲染器里会显示在页面顶部。
+    """
+    m = META_COMMENT_RE.match(text)
+    if m:
+        return _parse_kv(m.group(1)), text[m.end():]
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        if end != -1:
+            return _parse_kv(text[3:end]), text[end + 4:]
+    return {}, text
+
+
 def body_lines(text):
-    """逐行产出 (行号, 行文本, 是否跳过)。frontmatter 与代码围栏内的行标记为跳过。"""
+    """逐行产出 (行号, 行文本, 是否跳过)。元数据块与代码围栏内的行标记为跳过。"""
     lines = text.split("\n")
-    in_front = bool(lines) and lines[0].strip() == "---"
+    first = lines[0].strip() if lines else ""
+    in_front = first == "---"
+    in_comment = first.startswith("<!--")
     in_fence = False
     for i, line in enumerate(lines):
+        if in_comment:
+            yield i, line, True
+            if "-->" in line:
+                in_comment = False
+            continue
         if in_front:
             yield i, line, True
             if i > 0 and line.strip() == "---":

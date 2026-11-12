@@ -123,7 +123,7 @@ python scripts/weekly.py --end 2026-11-11     # 汇总最近 7 天
 
 | 检查 | 级别 |
 |---|---|
-| frontmatter 日期与文件名一致 | ERROR |
+| 顶部元数据的日期与文件名一致 | ERROR |
 | 有「判断变化」「明早第一件事」两节 | ERROR |
 | 引用的 `B-` `T-` `R-` `D-` 编号都已登记 | ERROR |
 | 相对链接存在、无绝对路径 | ERROR |

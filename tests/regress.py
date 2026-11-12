@@ -150,11 +150,42 @@ def case_relink(tmp):
     return True, ""
 
 
+def case_hide_meta(tmp):
+    """--- 元数据可转成不可见注释块；转换后校验与周报仍能读到；重复运行无改动。"""
+    root = fresh_project(tmp)
+    log = root / "devlog" / "daily" / "2026-11-11.md"
+    # 把夹具日志还原成旧的 --- 写法
+    text = log.read_text(encoding="utf-8")
+    old = text.replace("<!--\n", "---\n", 1).replace("\n-->", "\n---", 1)
+    log.write_text(old, encoding="utf-8")
+    _, out = run("check_log.py", log, "--root", root)
+    if "不少渲染器会把它显示在页面顶部" not in out:
+        return False, f"旧写法应被提示：\n{out}"
+    run("hide_meta.py", "--root", root)
+    new = log.read_text(encoding="utf-8")
+    if not new.startswith("<!--\ndate: 2026-11-11") or "\n-->" not in new:
+        return False, f"没有转成注释块：\n{new[:200]}"
+    code, out = run("check_log.py", log, "--root", root)
+    if code != 0 or "不少渲染器" in out:
+        return False, f"转换后校验应通过且无提示：exit={code}\n{out}"
+    _, out = run("hide_meta.py", "--root", root)
+    if "已转换 0 个文件" not in out:
+        return False, f"重复运行应无改动：\n{out}"
+    code, out = run("weekly.py", "--end", "2026-11-11", "--root", root)
+    wk = root / "devlog" / "weekly" / "2026-W46.md"
+    if code != 0 or not wk.exists():
+        return False, f"周报读不到注释块里的元数据：\n{out}"
+    if not wk.read_text(encoding="utf-8").startswith("<!--"):
+        return False, "周报的元数据也应是注释块"
+    return True, ""
+
+
 CASES = [
     ("索引链接全部可打开", case_index_links),
     ("弱证据被拦住、待补可放行", case_weak_evidence),
     ("docs/devlog 放错位置会报错", case_misplaced),
     ("链接写说明、补层级、归档后修复", case_relink),
+    ("元数据转成不可见注释块", case_hide_meta),
 ]
 
 

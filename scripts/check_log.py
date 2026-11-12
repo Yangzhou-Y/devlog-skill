@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import (CODE_SPAN_RE, LINK_RE, body_lines, find_root,  # noqa: E402
                      is_external, is_link_label, linkable_path,
-                     misplaced_devlog, resolve_target)
+                     misplaced_devlog, parse_meta, resolve_target)
 
 for stream in (sys.stdout, sys.stderr):
     try:
@@ -63,20 +63,6 @@ class Report:
             print(f"  ! {m}")
         for m in self.errors:
             print(f"  ✗ {m}")
-
-
-def parse_frontmatter(text):
-    if not text.startswith("---"):
-        return {}, text
-    end = text.find("\n---", 3)
-    if end == -1:
-        return {}, text
-    fm = {}
-    for line in text[3:end].splitlines():
-        if ":" in line and not line.startswith((" ", "\t")):
-            k, v = line.split(":", 1)
-            fm[k.strip()] = v.strip()
-    return fm, text[end + 4:]
 
 
 def load_config(root):
@@ -398,12 +384,15 @@ def main():
     text = log_path.read_text(encoding="utf-8")
 
     rep = Report()
-    fm, body = parse_frontmatter(text)
+    fm, body = parse_meta(text)
+    if text.startswith("---"):
+        rep.warn("元数据用的是 --- frontmatter，不少渲染器会把它显示在页面顶部；"
+                 "运行 python scripts/hide_meta.py 改成不可见的注释块")
 
     date = fm.get("date", "")
     m = re.match(r"(\d{4}-\d{2}-\d{2})", date)
     if not m:
-        rep.error("frontmatter 缺少合法的 date: YYYY-MM-DD")
+        rep.error("元数据缺少合法的 date: YYYY-MM-DD")
         log_date = None
     else:
         log_date = m.group(1)
@@ -412,7 +401,7 @@ def main():
 
     for key in ("period", "builds", "commits", "sessions", "tasks_added", "tasks_closed"):
         if key not in fm:
-            rep.warn(f"frontmatter 缺少字段 {key}")
+            rep.warn(f"元数据缺少字段 {key}")
 
     try:
         shown = log_path.relative_to(root)

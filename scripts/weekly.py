@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import find_root  # noqa: E402
+from _common import find_root, parse_meta  # noqa: E402
 
 for stream in (sys.stdout, sys.stderr):
     try:
@@ -29,20 +29,6 @@ for stream in (sys.stdout, sys.stderr):
 SECTION_RE = re.compile(r"^##\s+(.+?)\s*$", re.M)
 TASK_ROW_RE = re.compile(r"^\|\s*(T-\d{4})\s*\|(.+)$")
 ID_RE = re.compile(r"\b([RTD]-\d{4})\b")
-
-
-def parse_frontmatter(text):
-    if not text.startswith("---"):
-        return {}
-    end = text.find("\n---", 3)
-    if end == -1:
-        return {}
-    fm = {}
-    for line in text[3:end].splitlines():
-        if ":" in line and not line.startswith((" ", "\t")):
-            k, v = line.split(":", 1)
-            fm[k.strip()] = v.strip()
-    return fm
 
 
 def split_sections(text):
@@ -133,7 +119,7 @@ def main():
 
     for day, path in days:
         text = path.read_text(encoding="utf-8")
-        fm = parse_frontmatter(text)
+        fm, _ = parse_meta(text)
         sections = split_sections(text)
         date = f"{day:%m-%d}"
 
@@ -182,11 +168,11 @@ def main():
     evidence = "、".join(f"`{b}`" for b in builds) if builds else "- 本周未登记新产物。"
 
     lines = [
-        "---",
+        "<!--",
         f"week: {week_tag}",
         f"range: {start:%Y-%m-%d} ~ {end:%Y-%m-%d}",
         f"days_logged: {len(days)}/{args.days}",
-        "---",
+        "-->",
         "",
         f"# {week_tag} · 一句话结论",
         "",
