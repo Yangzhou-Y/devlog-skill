@@ -1,0 +1,33 @@
+# 变更记录
+
+## v0.4.0 — 2026-11-12
+
+- 生成物统一收进项目根 `devlog/`，与 `docs/` 分开：`daily/`、`weekly/`、`.evidence/`、状态表、配置与项目笔记
+- 索引改到 `devlog/INDEX.md`，索引与位置检查随之调整
+- 项目 `.gitignore` 只需忽略 `devlog/.evidence/`
+
+## v0.3.0 — 2026-11-12
+
+- 新增 `scripts/index_logs.py`：按年月索引日日志，并列出命名异常
+- 新增文件管理规范：当年扁平、跨年分层、周报按 ISO 周、证据快照可删
+- `weekly.py` 与索引支持按年嵌套的日志目录
+- `check_log.py` 增加存放位置检查
+
+## v0.2.0 — 2026-11-12
+
+- 新增 `scripts/weekly.py`：从日日志汇总周报草稿，含任务去重、风险/决策按编号合并、未记录日期统计
+- `SKILL.md` 增加周报分支与三档触发规则
+- 通用化：去掉工具绑定，增加 `references/adapters.md` 与 `install.py`
+- 默认阶段词表改为通用值，硬件词表移到配置注释
+- 示例改用虚构项目
+
+## v0.1.0 — 2026-11-12
+
+首个可发布版本。
+
+- `SKILL.md`：五步流程、八条硬规则、阶段与任务状态词表
+- `scripts/collect_evidence.py`：按日收集改动文件、产物校验和、报告指标、git 提交
+- `scripts/check_log.py`：校验结构、编号登记、链接、词表、状态表同步
+- `assets/`：`STATE` / `TASKS` / `RISKS` / `DECISIONS` / `BUILDS` / `devlog.yml` / `devlog.notes.md`
+- `install.py`：安装到 ClawsGO、Claude Code、Codex，或项目级目录；支持生成 Cursor 规则
+- 自测：正常日志通过、错误日志按预期报错
