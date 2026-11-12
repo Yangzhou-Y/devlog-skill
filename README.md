@@ -2,6 +2,8 @@
 
 **给 AI agent 用的科研工程开发日志 skill。一天一份、可核验、可续接。**
 
+[![test](https://github.com/Yangzhou-Y/devlog-skill/actions/workflows/test.yml/badge.svg)](https://github.com/Yangzhou-Y/devlog-skill/actions/workflows/test.yml)
+
 A portable devlog skill for AI coding agents: one log per day, every claim traceable to evidence, every log resumable the next morning.
 
 ---
