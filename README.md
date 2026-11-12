@@ -101,11 +101,11 @@ devlog/
 ```
 
 ```bash
-python scripts/relink.py       # 证据路径变成可点击链接；日志归档搬家后也用它修复
+python scripts/relink.py       # 补对链接层级；日志归档搬家后也用它修复
 python scripts/index_logs.py   # 刷新索引
 ```
 
-日志里写成 `` `.sim/xxx.log` `` 的证据路径，`relink.py` 会改成相对本日志的链接，在编辑器或浏览器里点一下就能打开当时的文件，不用手算 `../`。
+证据写成 `[DDR3 位流复测日志](.sim/ddr3_shot/previous_slow_console.txt)` 这样的链接：文字说明这是什么，点一下就能打开当时的文件。路径从项目根写起即可，`relink.py` 会补成相对本日志的层级，不用手算 `../`。
 
 索引里会列出“命名异常”的文件——这是发现日志放错地方、命名不合规的唯一入口。当年保持扁平，跨年再分层；脚本递归查找，移动目录不用改名。
 

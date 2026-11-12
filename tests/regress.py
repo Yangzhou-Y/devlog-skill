@@ -96,7 +96,7 @@ tasks_closed: []
 ## 1. 采集链路（阶段：仿真通过）
 
 - **结果** 判据：时序达标｜结果：WNS +0.905 ns 通过 [仿真]
-- **证据** B-0001 · `build/timing.rpt` · `build/missing.rpt`
+- **证据** B-0001 · [布线时序报告](build/timing.rpt) · 裸写 `build/timing.rpt` · [build/timing.rpt](build/timing.rpt)
 - **复现** `bash tests/run_sim.sh`
 
 ## 明早第一件事
@@ -108,24 +108,36 @@ echo `build/timing.rpt`
 
 
 def case_relink(tmp):
-    """证据路径可点击；归档进年份目录后能修复；重复运行不再改动。"""
+    """链接要写说明；裸路径与“文字就是路径”各提示一次；搬家后可修复；幂等。"""
     root = fresh_project(tmp)
     log = root / "devlog" / "daily" / "2026-11-14.md"
     log.write_text(RELINK_LOG, encoding="utf-8")
-    code, out = run("check_log.py", log, "--root", root)
-    if "还不是可点击链接" not in out:
-        return False, f"未提示链接化：\n{out}"
+
+    _, out = run("check_log.py", log, "--root", root)
+    if "是裸写的" not in out:
+        return False, f"裸写路径未被提示：\n{out}"
+    if "链接的文字本身就是路径" not in out:
+        return False, f"文字就是路径的链接未被提示：\n{out}"
+
+    # 项目根写法的链接 -> 补成相对本日志的路径；说明文字保持不变
     run("relink.py", "--root", root)
     text = log.read_text(encoding="utf-8")
-    if "[`build/timing.rpt`](../../build/timing.rpt)" not in text:
-        return False, f"没有链接化：\n{text}"
-    if "`build/missing.rpt`" not in text or "[`build/missing" in text:
-        return False, "不存在的路径不应被链接化"
+    if "[布线时序报告](../../build/timing.rpt)" not in text:
+        return False, f"层级没有补对：\n{text}"
+    if "裸写 `build/timing.rpt`" not in text:
+        return False, "默认不应自动包裹裸路径"
     if "echo `build/timing.rpt`" not in text:
         return False, "代码围栏内不应被改动"
     _, out = run("relink.py", "--root", root)
     if "已处理 0 个文件" not in out:
         return False, f"重复运行应无改动：\n{out}"
+
+    # 显式开关才包裹裸路径
+    run("relink.py", "--root", root, "--wrap-bare")
+    if "[`build/timing.rpt`](../../build/timing.rpt)" not in log.read_text(encoding="utf-8"):
+        return False, "--wrap-bare 没有生效"
+
+    # 归档进年份目录后修复
     moved = log.parent / "2025" / "2026-11-14.md"
     moved.parent.mkdir(exist_ok=True)
     shutil.move(str(log), str(moved))
@@ -133,7 +145,7 @@ def case_relink(tmp):
     if "已失效" not in out:
         return False, f"归档后应提示链接失效：\n{out}"
     run("relink.py", "--root", root)
-    if "](../../../build/timing.rpt)" not in moved.read_text(encoding="utf-8"):
+    if "[布线时序报告](../../../build/timing.rpt)" not in moved.read_text(encoding="utf-8"):
         return False, "归档后链接没有被修复"
     return True, ""
 
@@ -142,7 +154,7 @@ CASES = [
     ("索引链接全部可打开", case_index_links),
     ("弱证据被拦住、待补可放行", case_weak_evidence),
     ("docs/devlog 放错位置会报错", case_misplaced),
-    ("证据链接化与归档后修复", case_relink),
+    ("链接写说明、补层级、归档后修复", case_relink),
 ]
 
 

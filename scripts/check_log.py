@@ -173,10 +173,18 @@ def check_ids(text, ids, rep):
             rep.note(f"{key}-ID 均已登记：{', '.join(sorted(used))}")
 
 
+def looks_like_path(label):
+    """链接文字是否只是一个路径（去掉反引号后含 / 或以文件扩展名结尾，且没有空格）。"""
+    s = label.strip().strip("`").strip()
+    if not s or any(c.isspace() for c in s):
+        return False
+    return "/" in s or bool(re.search(r"\.\w{1,6}$", s))
+
+
 def check_links(text, root, log_path, cfg, rep):
     evidence_dirs = tuple(cfg.get("evidence_dirs") or DEFAULT_EVIDENCE_DIRS)
     base = log_path.parent
-    stale = unlinked = 0
+    stale = unlinked = path_label = 0
     for _, line, skip in body_lines(text):
         if skip:
             continue
@@ -184,6 +192,8 @@ def check_links(text, root, log_path, cfg, rep):
             target = m.group(2)
             if is_external(target) or not target.split("#", 1)[0]:
                 continue
+            if looks_like_path(m.group(1)):
+                path_label += 1
             dest, by_root = resolve_target(base, root, target)
             if dest is None:
                 rep.error(f"链接目标不存在：{target}")
@@ -210,7 +220,9 @@ def check_links(text, root, log_path, cfg, rep):
     if stale:
         rep.warn(f"{stale} 个链接按当前位置已失效，运行 python scripts/relink.py 修复")
     if unlinked:
-        rep.warn(f"{unlinked} 处证据路径还不是可点击链接，运行 python scripts/relink.py")
+        rep.warn(f"{unlinked} 处证据路径是裸写的，请写成 [简要说明](路径)，让读者不点开也知道是什么")
+    if path_label:
+        rep.warn(f"{path_label} 个链接的文字本身就是路径，请改成简要说明，如 [DDR3 位流复测日志](路径)")
 
 
 def check_absolute_paths(text, rep):
@@ -245,6 +257,10 @@ def check_task_table(text, root, cfg, rep):
 
 FIELD_RE = re.compile(r"\*\*(目标|做了什么|结果|证据|复现|遗留)\*\*")
 PASS_RE = re.compile(r"(通过|一致|成功|达标|符合|满足|匹配)")
+# 普通条目里的结论：只认出现在分句末尾、标点或口径标签之前的词，
+# 以免把介词“通过 JTAG 下载”当成结论。
+STRICT_PASS_RE = re.compile(
+    r"(?:通过|一致|成功|达标|匹配|符合预期|满足要求)(?=\s*(?:[，。；;,.\[（(]|$))")
 EMPTY_VALUES = {"无", "—", "-", "暂无", "没有", "略", "同上", "n/a", "na", "不适用"}
 
 
@@ -268,6 +284,17 @@ def claims_pass(value):
     """文字里是否出现未被否定的“通过/一致/成功…”。"""
     for m in PASS_RE.finditer(value):
         if not re.search(r"(未|不|没有|无法)(能|再|完全)?$", value[:m.start()]):
+            return True
+    return False
+
+
+def plain_claim(line):
+    """没有 **字段** 标记的普通条目里，是否有未被否定的通过类结论。"""
+    s = line.strip()
+    if not s.startswith(("-", "*")) or FIELD_RE.search(s):
+        return False
+    for m in STRICT_PASS_RE.finditer(s):
+        if not re.search(r"(未|不|没有|无法)(能|再|完全)?$", s[:m.start()]):
             return True
     return False
 
@@ -296,7 +323,11 @@ def check_verification(text, fm, rep):
         f = section_fields(body)
         stage = re.search(r"阶段：([^）]+)", head)
         early = bool(stage) and stage.group(1) in {"设计", "已实现"}
-        claims = "结果" in f and claims_pass(f["结果"])
+        field_claim = "结果" in f and claims_pass(f["结果"])
+        bullet_claim = any(plain_claim(ln) for ln in body.splitlines())
+        claims = field_claim or bullet_claim
+        if bullet_claim and "结果" not in f:
+            rep.warn(f"{name}有通过类结论写在普通条目里，请改写进「结果」字段并给出判据")
         if claims:
             ev = f.get("证据")
             if ev is None:
@@ -305,7 +336,7 @@ def check_verification(text, fm, rep):
                 rep.error(f"{name}的「证据」为空或写成「无」，通过结论需要可定位的证据（缺项请写『待补』）")
             elif not evidence_locatable(ev, sessions):
                 rep.warn(f"{name}的「证据」没有编号、路径或会话可定位")
-            if "判据" not in f["结果"]:
+            if "结果" in f and "判据" not in f["结果"]:
                 rep.warn(f"{name}的「结果」没有写判据（什么算通过）")
         elif not early and "证据" not in f:
             rep.warn(f"{name}没有「证据」字段")
