@@ -17,6 +17,9 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import find_root  # noqa: E402
+
 for stream in (sys.stdout, sys.stderr):
     try:
         stream.reconfigure(encoding="utf-8")
@@ -26,13 +29,6 @@ for stream in (sys.stdout, sys.stderr):
 SECTION_RE = re.compile(r"^##\s+(.+?)\s*$", re.M)
 TASK_ROW_RE = re.compile(r"^\|\s*(T-\d{4})\s*\|(.+)$")
 ID_RE = re.compile(r"\b([RTD]-\d{4})\b")
-
-
-def find_root(start):
-    for p in [start] + list(start.parents):
-        if (p / "devlog").is_dir():
-            return p
-    return start
 
 
 def parse_frontmatter(text):

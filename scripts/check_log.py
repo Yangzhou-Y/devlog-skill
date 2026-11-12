@@ -15,6 +15,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import (CODE_SPAN_RE, LINK_RE, body_lines, find_root,  # noqa: E402
+                     is_external, is_link_label, linkable_path,
+                     misplaced_devlog, resolve_target)
+
 for stream in (sys.stdout, sys.stderr):
     try:
         stream.reconfigure(encoding="utf-8")
@@ -34,7 +39,6 @@ ID_RE = {
     "R": re.compile(r"\bR-\d{4}\b"),
     "D": re.compile(r"\bD-\d{4}\b"),
 }
-LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 ABS_PATH_RE = re.compile(r"(?<![\w/])(?:[A-Za-z]:[\\/]|file://)")
 SECTION_RE = re.compile(r"^##\s+(.+?)\s*$", re.M)
 
@@ -59,13 +63,6 @@ class Report:
             print(f"  ! {m}")
         for m in self.errors:
             print(f"  ✗ {m}")
-
-
-def find_root(start):
-    for p in [start] + list(start.parents):
-        if (p / "devlog").is_dir() or (p / ".git").is_dir():
-            return p
-    return start
 
 
 def parse_frontmatter(text):
@@ -139,7 +136,11 @@ def is_gitignored(root, relpath):
 
 
 def check_location(log_path, root, rep):
-    """日志必须放在 devlog/daily/ 下，层级不超过 devlog/daily/YYYY/MM/。"""
+    """日志必须放在项目根的 devlog/daily/ 下，层级不超过 devlog/daily/YYYY/MM/。"""
+    if misplaced_devlog(root):
+        rep.error("日志目录放错了位置：docs/devlog/ 应位于项目根的 devlog/，"
+                  "不要放进 docs/。迁移：mv docs/devlog devlog，再运行 python scripts/relink.py")
+        return
     try:
         rel = log_path.relative_to(root)
     except ValueError:
@@ -174,26 +175,42 @@ def check_ids(text, ids, rep):
 
 def check_links(text, root, log_path, cfg, rep):
     evidence_dirs = tuple(cfg.get("evidence_dirs") or DEFAULT_EVIDENCE_DIRS)
-    for target in LINK_RE.findall(text):
-        if target.startswith(("http://", "https://", "mailto:", "#")):
+    base = log_path.parent
+    stale = unlinked = 0
+    for _, line, skip in body_lines(text):
+        if skip:
             continue
-        clean = target.split("#", 1)[0]
-        if not clean:
-            continue
-        resolved = (log_path.parent / clean).resolve()
-        try:
-            rel = resolved.relative_to(root).as_posix()
-        except ValueError:
-            rep.error(f"链接指向项目外：{target}")
-            continue
-        if not resolved.exists():
-            rep.error(f"链接目标不存在：{target}")
-            continue
-        if is_gitignored(root, rel):
-            if rel.startswith(evidence_dirs):
-                rep.warn(f"链接指向被忽略的证据目录（需同时提供 build id）：{target}")
-            else:
-                rep.warn(f"链接指向被 .gitignore 忽略的文件：{target}")
+        for m in LINK_RE.finditer(line):
+            target = m.group(2)
+            if is_external(target) or not target.split("#", 1)[0]:
+                continue
+            dest, by_root = resolve_target(base, root, target)
+            if dest is None:
+                rep.error(f"链接目标不存在：{target}")
+                continue
+            if by_root:
+                stale += 1
+                continue
+            try:
+                rel = dest.resolve().relative_to(root).as_posix()
+            except ValueError:
+                rep.error(f"链接指向项目外：{target}")
+                continue
+            if is_gitignored(root, rel):
+                if not rel.startswith(evidence_dirs):
+                    rep.warn(f"链接指向被 .gitignore 忽略的文件：{target}")
+                elif not ID_RE["B"].search(line):
+                    rep.warn(f"链接指向会被清理的证据目录，请在同一行写 build id：{target}")
+        for m in CODE_SPAN_RE.finditer(line):
+            token = m.group(1)
+            if is_link_label(line, m) or any(c.isspace() for c in token):
+                continue
+            if linkable_path(token, root):
+                unlinked += 1
+    if stale:
+        rep.warn(f"{stale} 个链接按当前位置已失效，运行 python scripts/relink.py 修复")
+    if unlinked:
+        rep.warn(f"{unlinked} 处证据路径还不是可点击链接，运行 python scripts/relink.py")
 
 
 def check_absolute_paths(text, rep):
@@ -226,21 +243,78 @@ def check_task_table(text, root, cfg, rep):
                 rep.warn(f"{tid} 日志中的状态「{row['state']}」与 TASKS.md 的「{master[tid]['state']}」不一致")
 
 
-def check_evidence_fields(text, rep):
-    sections = re.split(SECTION_RE, text)
-    # re.split with one group yields [pre, head1, body1, head2, body2, ...]
-    early = {"设计", "已实现"}
-    for i in range(1, len(sections) - 1, 2):
-        head, body = sections[i], sections[i + 1]
+FIELD_RE = re.compile(r"\*\*(目标|做了什么|结果|证据|复现|遗留)\*\*")
+PASS_RE = re.compile(r"(通过|一致|成功|达标|符合|满足|匹配)")
+EMPTY_VALUES = {"无", "—", "-", "暂无", "没有", "略", "同上", "n/a", "na", "不适用"}
+
+
+def section_fields(body):
+    """取出小节里的 **字段** 与值；每个字段只取所在行、到下一个字段标记之前。"""
+    fields = {}
+    for line in body.split("\n"):
+        marks = list(FIELD_RE.finditer(line))
+        for k, m in enumerate(marks):
+            end = marks[k + 1].start() if k + 1 < len(marks) else len(line)
+            fields[m.group(1)] = line[m.end():end].strip(" ：:\t")
+    return fields
+
+
+def is_empty_value(value):
+    v = value.strip().rstrip("。.;；,，").strip().lower()
+    return v == "" or v in EMPTY_VALUES
+
+
+def claims_pass(value):
+    """文字里是否出现未被否定的“通过/一致/成功…”。"""
+    for m in PASS_RE.finditer(value):
+        if not re.search(r"(未|不|没有|无法)(能|再|完全)?$", value[:m.start()]):
+            return True
+    return False
+
+
+def evidence_locatable(value, sessions):
+    """证据里是否有能定位的东西：编号、链接、路径、会话，或明写的待补。"""
+    if "待补" in value or "会话" in value:
+        return True
+    if re.search(r"\bB-\d{4}\b", value) or LINK_RE.search(value):
+        return True
+    if any(s[:8] in value for s in sessions):
+        return True
+    return any(" " not in t and ("/" in t or re.search(r"\.\w{1,6}$", t))
+               for t in CODE_SPAN_RE.findall(value))
+
+
+def check_verification(text, fm, rep):
+    """通过类结论必须带可定位的证据；证据写“无”按错误处理，缺项请明写“待补”。"""
+    sessions = re.findall(r"[0-9a-f]{8}-[0-9a-f-]{4,}", fm.get("sessions", ""))
+    parts = SECTION_RE.split(text)
+    for i in range(1, len(parts) - 1, 2):
+        head, body = parts[i], parts[i + 1]
         if not re.match(r"[1-9]", head):
             continue
-        m = re.search(r"阶段：([^）]+)", head)
-        if m and m.group(1) in early:
-            continue          # 还在设计/实现阶段，不要求验证证据
-        if "证据" not in body:
-            rep.warn(f"章节「{head}」没有「证据」字段")
-        if "复现" not in body:
-            rep.warn(f"章节「{head}」没有「复现」字段")
+        name = f"章节「{head}」"
+        f = section_fields(body)
+        stage = re.search(r"阶段：([^）]+)", head)
+        early = bool(stage) and stage.group(1) in {"设计", "已实现"}
+        claims = "结果" in f and claims_pass(f["结果"])
+        if claims:
+            ev = f.get("证据")
+            if ev is None:
+                rep.error(f"{name}声称通过，但没有「证据」字段（缺项请明写『待补』）")
+            elif is_empty_value(ev):
+                rep.error(f"{name}的「证据」为空或写成「无」，通过结论需要可定位的证据（缺项请写『待补』）")
+            elif not evidence_locatable(ev, sessions):
+                rep.warn(f"{name}的「证据」没有编号、路径或会话可定位")
+            if "判据" not in f["结果"]:
+                rep.warn(f"{name}的「结果」没有写判据（什么算通过）")
+        elif not early and "证据" not in f:
+            rep.warn(f"{name}没有「证据」字段")
+        if claims or not early:
+            rv = f.get("复现")
+            if rv is None:
+                rep.warn(f"{name}没有「复现」字段")
+            elif is_empty_value(rv):
+                rep.warn(f"{name}的「复现」写成了「无」，请说明原因，如「无（现场操作）」")
 
 
 def check_state(root, log_date, cfg, rep):
@@ -315,13 +389,17 @@ def main():
         shown = log_path
     print(f"校验 {shown}")
     check_location(log_path, root, rep)
+    if misplaced_devlog(root):          # 目录都放错了，其余检查只会产生连带噪音
+        rep.dump()
+        print(f"\n结果：{len(rep.errors)} 个 ERROR，先把目录迁到项目根再校验")
+        return 1
     check_sections(body, rep)
     check_ids(body, registry_ids(root), rep)
     check_links(body, root, log_path, cfg, rep)
     check_absolute_paths(body, rep)
     check_stages(body, cfg, rep)
     check_task_table(body, root, cfg, rep)
-    check_evidence_fields(body, rep)
+    check_verification(body, fm, rep)
     check_todo_and_tags(body, rep)
     check_state(root, log_date, cfg, rep)
 

@@ -18,6 +18,9 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import find_root, misplaced_devlog, relative_link  # noqa: E402
+
 for stream in (sys.stdout, sys.stderr):
     try:
         stream.reconfigure(encoding="utf-8")
@@ -27,13 +30,6 @@ for stream in (sys.stdout, sys.stderr):
 NAME_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})\.md$")
 TITLE_RE = re.compile(r"^#\s+.+?·\s*(.+?)\s*$")
 RESERVED = {"index.md", "readme.md"}
-
-
-def find_root(start):
-    for p in [start] + list(start.parents):
-        if (p / "devlog").is_dir():
-            return p
-    return start
 
 
 def collect(log_dir):
@@ -70,12 +66,18 @@ def title_of(path):
 
 def main():
     ap = argparse.ArgumentParser(description="生成日志索引")
-    ap.add_argument("--root", help="项目根目录，默认自动查找")
+    ap.add_argument("--root", help="项目根目录，默认自动查找（含 devlog/ 的祖先，docs/ 不算）")
     ap.add_argument("--out", help="输出路径，默认 devlog/INDEX.md")
     args = ap.parse_args()
 
     root = Path(args.root).resolve() if args.root else find_root(Path.cwd())
     log_dir = root / "devlog" / "daily"
+    wrong = misplaced_devlog(root)
+    if wrong and not log_dir.is_dir():
+        print(f"[错误] 日志目录放错了位置：{wrong}\n"
+              f"  应放在项目根：{root / 'devlog'}\n"
+              f"  迁移：mv docs/devlog devlog && python scripts/relink.py", file=sys.stderr)
+        return 2
     if not log_dir.is_dir():
         print(f"[错误] 找不到 {log_dir}", file=sys.stderr)
         return 2
@@ -102,7 +104,7 @@ def main():
         entries = sorted(months[month], reverse=True)
         lines += [f"## {month}（{len(entries)} 篇）", ""]
         for key, path in entries:
-            rel = path.relative_to(log_dir).as_posix()
+            rel = relative_link(out_path.parent, path)
             lines.append(f"- [{key}]({rel}) · {title_of(path)}")
         lines.append("")
 
@@ -113,7 +115,7 @@ def main():
         if weeks:
             lines += ["## 周报", ""]
             for path in sorted(weeks, reverse=True):
-                rel = path.relative_to(root / "devlog").as_posix()
+                rel = relative_link(out_path.parent, path)
                 lines.append(f"- [{path.stem}]({rel})")
             lines.append("")
 

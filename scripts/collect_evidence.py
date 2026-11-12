@@ -20,6 +20,9 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import find_root  # noqa: E402
+
 for stream in (sys.stdout, sys.stderr):
     try:
         stream.reconfigure(encoding="utf-8")
@@ -135,11 +138,11 @@ def git(root, *args):
 def main():
     ap = argparse.ArgumentParser(description="收集某一天的工程证据")
     ap.add_argument("--date", help="YYYY-MM-DD，默认今天")
-    ap.add_argument("--root", default=".", help="项目根目录，默认当前目录")
+    ap.add_argument("--root", help="项目根目录，默认自动查找（含 devlog/ 的祖先，其次含 .git 的祖先）")
     ap.add_argument("--json-out", help="证据快照输出路径")
     args = ap.parse_args()
 
-    root = Path(args.root).resolve()
+    root = Path(args.root).resolve() if args.root else find_root(Path.cwd())
     if not (root / "README.md").exists() and not (root / "devlog").exists():
         print(f"[错误] {root} 不像项目根：既没有 README.md 也没有 devlog/", file=sys.stderr)
         return 2

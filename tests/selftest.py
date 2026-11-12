@@ -110,6 +110,16 @@ def main():
         print("[FAIL] 日志索引")
         print(idx.stdout + idx.stderr)
 
+    sys.path.insert(0, str(HERE))
+    import regress
+    for name, ok, detail in regress.run_all():
+        if ok:
+            print(f"[PASS] {name}")
+        else:
+            failed += 1
+            print(f"[FAIL] {name}")
+            print(detail)
+
     print(f"\n{'全部通过' if not failed else f'{failed} 项失败'}")
     return 1 if failed else 0
 

@@ -22,11 +22,13 @@ description: "维护科研与工程项目的开发日志（development log / dev
 
 ### 第 0 步 · 定位与读取
 
-确认项目根是当前工作目录（含 `README.md` 或 `devlog/`）。日志目录不存在就建：
+确认项目根是当前工作目录（含 `README.md` 或 `.git`）。日志目录不存在就建：
 
 ```bash
 mkdir -p devlog/daily devlog/weekly devlog/.evidence
 ```
+
+**`devlog/` 固定在项目根，不放进 `docs/`**，即使项目约定“文档都放 docs/”也一样：`docs/` 会被各种文档填满，日志目录要自成一体。项目的 `AGENTS.md` 或用户习惯与此冲突时，先问用户，不要自行选择。若发现已有 `docs/devlog/`，停下来提示迁移：`mv docs/devlog devlog && python scripts/relink.py`。
 
 依次读：
 
@@ -66,11 +68,25 @@ python scripts/check_log.py devlog/daily/YYYY-MM-DD.md
 
 有 `ERROR` 必须改到通过；`WARN` 逐条判断，确属可接受的写进日志末尾「说明」。校验不通过就不要向用户汇报“已完成”。
 
-日志落盘后刷新索引（每次写日志都做，一次几十毫秒）：
+校验会检查证据：声称“通过”的小节，「证据」不能为空或写“无”，必须有产物编号、链接、路径或会话号之一；确实缺就明写 `待补`。
+
+写完后依次做两件事，都是几十毫秒：
 
 ```bash
-python scripts/index_logs.py
+python scripts/relink.py      # 证据路径变成可点击链接，归档搬家后的失效链接也在这里修
+python scripts/index_logs.py  # 刷新 devlog/INDEX.md
 ```
+
+**证据路径要能点击跳转。** 正文里写成 `` `.sim/ddr3_shot/xxx.log` `` 即可，`relink.py` 会把存在的路径改成相对本日志的链接，不用手算 `../`；不存在的路径不会被链接化，`check_log.py` 会点出来。
+
+### 补写旧日期
+
+补写某个旧日期的日志（原日志缺失、或要把旧格式改写成规范格式）时：
+
+- 素材只用三类：用户指定的旧日志、该日会话、当天的证据快照。没有就写 `待补`，不要用今天的记忆填
+- **只写那一天的日志文件。** `STATE.md`、`TASKS.md` 记录的是“现在”，补写旧日期不得覆盖它们；只有当该日期晚于 `STATE.md` 的“最近更新”时才允许更新
+- 用 `--date` 指定日期收集证据；frontmatter 加一行 `backfill: true`，让后来者知道这是事后补的
+- 任务连续天数以补写日期为准重新推算，不要沿用今天的值
 
 ### 第 5 步 · 汇报
 
@@ -140,7 +156,7 @@ devlog/
 
 **R6 只追加。** 当天日志已存在时，只追加 `## 补记 HH:MM`，不修改已写内容；发现旧结论有错，用删除线加一句更正，并在「判断变化」里记一笔。
 
-**R7 证据路径。** 只写项目内相对路径。绝对路径一律转成“项目内副本”或“外部资源 + 版本号”。指向忽略目录的链接可以保留，但要同时登记产物 ID。
+**R7 证据路径。** 只写项目内相对路径，并用 `relink.py` 变成可点击链接。绝对路径一律转成“项目内副本”或“外部资源 + 版本号”。指向 `.sim/`、`build/` 这类会被清理的目录，链接可以保留，但同一行必须写产物 ID。
 
 **R8 待补可见。** 文末单列「待补」，逐条写清缺什么、去哪查。校验脚本会统计条数，超过 5 条提示当天记录质量不足。
 
@@ -171,5 +187,7 @@ devlog/
 - `scripts/check_log.py` — 日志与状态表校验
 - `scripts/weekly.py` — 周报草稿汇总（只读日日志）
 - `scripts/index_logs.py` — 生成 `devlog/INDEX.md`
+- `scripts/relink.py` — 证据路径链接化，修复搬家后失效的链接
+- `scripts/_common.py` — 各脚本共用的定位与链接工具
 - `assets/` — 六份文档骨架
 - `install.py` — 安装到指定的一个 agent
