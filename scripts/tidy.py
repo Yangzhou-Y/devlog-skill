@@ -32,13 +32,23 @@ HEADING_RE = re.compile(r"^(#{1,2})[ \t]+(.+?)[ \t]*$")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
 
 
+ZERO_RE = re.compile(r"^(#{1,2}[ \t]+(?:\*\*)?)0\.[ \t]*(判断变化)")
+
+
 def bold_headings(text):
-    """# 与 ## 标题加粗，代码围栏内的行不动；返回 (新文本, 改了几处)。"""
+    """# 与 ## 标题加粗，代码围栏内的行不动；返回 (新文本, 改了几处)。
+
+    顺带把旧版的「0. 判断变化」改成「判断变化」：这一节不编号，工作流小节从 1 开始。
+    """
     out, count, in_fence = [], 0, False
     for line in text.split("\n"):
         if FENCE_RE.match(line):
             in_fence = not in_fence
         elif not in_fence:
+            fixed = ZERO_RE.sub(r"\1\2", line)
+            if fixed != line:
+                line = fixed
+                count += 1
             m = HEADING_RE.match(line)
             if m and not (m.group(2).startswith("**") and m.group(2).endswith("**")):
                 line = f"{m.group(1)} **{m.group(2)}**"

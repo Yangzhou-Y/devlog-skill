@@ -27,7 +27,7 @@ A portable devlog skill for AI coding agents: one log per day, every claim trace
 ```markdown
 # 2026-11-11 · 采集链路到仿真通过，实机卡在链路异常
 
-## 0. 判断变化
+## 判断变化
 - 原以为旧版固件可以当已知良好基准 → 今天它也异常 → 基准失效，排查转向链路侧
 
 ## 1. 数据采集链路（阶段：仿真通过）

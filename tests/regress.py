@@ -89,7 +89,7 @@ tasks_closed: []
 
 # 2026-11-14 · 链接测试
 
-## 0. 判断变化
+## 判断变化
 
 - 无。
 
@@ -157,7 +157,7 @@ def case_tidy(tmp):
     meta = root / "devlog" / ".meta" / "2026-11-11.yml"
     # 夹具是整理后的样子；还原成“元数据写在顶部、标题未加粗”的原始写法
     body = "\n".join(
-        ln.replace("**", "") if ln.startswith("#") else ln
+        ln.replace("**", "").replace("## 判断变化", "## 0. 判断变化") if ln.startswith("#") else ln
         for ln in log.read_text(encoding="utf-8").split("\n"))
     head = meta.read_text(encoding="utf-8")
     log.write_text("<!--\n" + head + "-->\n\n" + body, encoding="utf-8")
@@ -173,7 +173,7 @@ def case_tidy(tmp):
         return False, f"元数据仍在日志正文里：\n{new[:160]}"
     if not meta.exists() or "date: 2026-11-11" not in meta.read_text(encoding="utf-8"):
         return False, "元数据没有写进 devlog/.meta/"
-    if "## **0. 判断变化" not in new or not new.lstrip().startswith("# **"):
+    if "## **判断变化" not in new or "0. 判断变化" in new or not new.lstrip().startswith("# **"):
         return False, f"标题没有加粗：\n{new[:200]}"
     if "```bash" in new and "**" in new.split("```bash", 1)[1].split("```", 1)[0]:
         return False, "代码围栏内不应被加粗"
