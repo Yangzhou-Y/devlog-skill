@@ -10,8 +10,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        python: ["3.8", "3.10", "3.12"]
+        include:
+          # ubuntu-latest 已升到 26.04，不再提供 3.8 的安装包
+          - os: ubuntu-22.04
+            python: "3.8"
+          - os: ubuntu-latest
+            python: "3.10"
+          - os: ubuntu-latest
+            python: "3.12"
+          - os: windows-latest
+            python: "3.8"
+          - os: windows-latest
+            python: "3.12"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
