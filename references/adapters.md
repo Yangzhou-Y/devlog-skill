@@ -1,39 +1,44 @@
 # 各 agent 的安装与降级用法
 
-skill 的主体是 `SKILL.md` 与两个 Python 脚本，与具体 agent 无关。区别只在“它从哪里被读到”。
+skill 的主体是 `SKILL.md` 与两个 Python 脚本，格式是通用的：YAML frontmatter 加 Markdown 正文。只要 agent 支持这套格式，把整个 `devlog/` 目录放进去就能被识别。
 
-## 支持 skill 目录的 agent
+装一个就够，不需要为了“以后可能用”把所有 agent 都装一遍。
 
-把整个目录复制过去即可，目录名保持 `devlog`：
+## 支持 SKILL.md 的 agent
 
-| agent | 用户级路径 | 项目级路径 |
-|---|---|---|
-| ClawsGO | `~/.clawsgo/skills/devlog/` | `.clawsgo/skills/devlog/` |
-| Claude Code | `~/.claude/skills/devlog/` | `.claude/skills/devlog/` |
-| Codex | `~/.codex/skills/devlog/` | — |
-| 其他兼容 SKILL.md 的 agent | 见其文档 `skills/` 约定 | 见其文档 |
+| agent | 用户级 | 项目级 | 说明 |
+|---|---|---|---|
+| ClawsGO | `~/.clawsgo/skills/devlog/` | `.clawsgo/skills/devlog/` | 已验证 |
+| Claude Code | `~/.claude/skills/devlog/` | `.claude/skills/devlog/` | 已验证目录约定 |
+| Codex | `~/.codex/skills/devlog/` | — | 已验证 |
+| DeepSeek Harness | `~/.agents/skills/devlog/` | `.dsh/skills/devlog/` | 目录约定来自官方文档；`~/.agents/skills` 是跨 agent 通用位置 |
+| Qoder | `~/.lingma/skills/devlog/` | — | 目录约定来自 Lingma/Qoder 文档，以本机版本为准 |
 
 ```bash
-python install.py --all          # 装到本机已存在的全部 agent 目录
-python install.py --target codex --target clawsgo
-python install.py --project .    # 装到当前项目的 .claude/ 与 .clawsgo/
+python install.py --list           # 看本机检测到哪些目录
+python install.py --target codex   # 装到其中一个
+python install.py --target claude --project .   # 或装到当前项目
 ```
 
-装完重启对应 agent，新建会话才会加载。
+项目级安装会让 skill 只在这个项目里生效，适合不想动全局配置的场景。同一名称时，项目级通常覆盖用户级。
 
-## 不支持 skill 的 agent
+## 不支持 SKILL.md 的 agent
 
 ### Cursor
 
-复制 `SKILL.md` 正文（去掉 frontmatter）到 `.cursor/rules/devlog.mdc`，前面加：
-
-```yaml
----
-description: 写开发日志时按此流程
-globs: devlog/daily/**
-alwaysApply: false
----
+```bash
+python install.py --target claude --project . --cursor
 ```
+
+生成 `.cursor/rules/devlog.mdc`，`globs: devlog/daily/**`，按需触发。
+
+### 豆包（Doubao）等只能上传技能包的客户端
+
+支持上传含 `SKILL.md` 的文件夹或压缩包，但**没有命令执行环境**：
+
+- 可以把本 skill 当流程手册用，日志结构、四段式、硬规则仍然适用
+- `collect_evidence.py`、`check_log.py` 跑不了，证据收集与格式校验需在本地用 Python 补
+- 上传时要把 `references/`、`assets/` 一并带上，只传一个 `SKILL.md` 会缺模板与骨架
 
 ### Gemini CLI / 其他读 GEMINI.md、AGENTS.md 的 agent
 
@@ -43,7 +48,7 @@ alwaysApply: false
 写开发日志、更新状态表、校验日志格式时，遵循 <本 skill 路径>/SKILL.md 的流程与硬规则。
 ```
 
-### 完全没有文件系统的环境（网页端对话）
+### 没有文件系统的环境（网页端对话）
 
 只能人工把当天过程贴给有文件权限的 agent，由后者执行第 1～4 步。硬规则里的“不编造”“四段式”仍然适用。
 

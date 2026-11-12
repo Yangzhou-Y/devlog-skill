@@ -172,4 +172,4 @@ devlog/
 - `scripts/weekly.py` — 周报草稿汇总（只读日日志）
 - `scripts/index_logs.py` — 生成 `devlog/INDEX.md`
 - `assets/` — 六份文档骨架
-- `install.py` — 一键安装到本机各 agent
+- `install.py` — 安装到指定的一个 agent

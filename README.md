@@ -41,21 +41,25 @@ A portable devlog skill for AI coding agents: one log per day, every claim trace
 ```bash
 git clone <this-repo> devlog-skill
 cd devlog-skill
-python install.py --list        # 看看本机有哪些 agent
-python install.py --all         # 装到全部检测到的位置
+python install.py --list           # 看看本机有哪些 agent 目录
+python install.py --target codex   # 装到你在用的那一个
 ```
 
-也可只装一个：`python install.py --target codex`，或装到项目内：`python install.py --project /path/to/project`。
+装一个就够。本机装了多个 agent 时，各自独立安装，互不依赖；不装的那个也不会受影响。
 
-支持的 agent 与路径见 [`references/adapters.md`](references/adapters.md)：
+| agent | 用户级路径 | 项目级 |
+|---|---|---|
+| ClawsGO | `~/.clawsgo/skills/devlog/` | `.clawsgo/skills/` |
+| Claude Code | `~/.claude/skills/devlog/` | `.claude/skills/` |
+| Codex | `~/.codex/skills/devlog/` | — |
+| DeepSeek Harness | `~/.agents/skills/devlog/` | `.dsh/skills/` |
+| Qoder | `~/.lingma/skills/devlog/` | — |
+| Cursor | 不读 SKILL.md，用 `--project . --cursor` 生成 `.cursor/rules/devlog.mdc` | |
+| 其他 | 在 `AGENTS.md` / `GEMINI.md` 里加一行指向 `SKILL.md` | |
 
-| agent | 路径 |
-|---|---|
-| ClawsGO | `~/.clawsgo/skills/devlog/` |
-| Claude Code | `~/.claude/skills/devlog/` |
-| Codex | `~/.codex/skills/devlog/` |
-| Cursor | `install.py --project . --cursor` 生成 `.cursor/rules/devlog.mdc` |
-| 其他 | 在 `AGENTS.md` / `GEMINI.md` 里加一行指向 `SKILL.md` |
+路径细节与降级用法见 [`references/adapters.md`](references/adapters.md)。
+
+需要脚本执行能力。豆包等只能上传技能包、不能运行本地命令的客户端，可以把 `SKILL.md` 当流程手册用，但证据收集与校验两个脚本跑不了。
 
 脚本只用 Python 标准库，Python 3.8+。
 
@@ -132,7 +136,7 @@ scripts/              证据收集、日志校验、周报汇总（纯标准库�
 assets/               七份文档骨架，首次启用时复制到项目 devlog/
 examples/             虚构样例
 tests/                自测与夹具
-install.py            一键安装
+install.py            装到指定的 agent
 ```
 
 ## 设计取舍

@@ -1,5 +1,11 @@
 # 变更记录
 
+## v0.4.1 — 2026-11-12
+
+- 安装改为显式单目标：移除 `--all`，必须用 `--target` 指定一个 agent
+- 新增 Qoder（`~/.lingma/skills`）与 DeepSeek Harness（`~/.agents/skills`、`.dsh/skills`）
+- 文档补充各 agent 的适用边界：豆包等无命令环境的客户端只能用作文档流程
+
 ## v0.4.0 — 2026-11-12
 
 - 生成物统一收进项目根 `devlog/`，与 `docs/` 分开：`daily/`、`weekly/`、`.evidence/`、状态表、配置与项目笔记
