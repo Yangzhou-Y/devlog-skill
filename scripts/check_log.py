@@ -309,7 +309,11 @@ def main():
         if key not in fm:
             rep.warn(f"frontmatter 缺少字段 {key}")
 
-    print(f"校验 {log_path.relative_to(root) if log_path.is_relative_to(root) else log_path}")
+    try:
+        shown = log_path.relative_to(root)
+    except ValueError:
+        shown = log_path
+    print(f"校验 {shown}")
     check_location(log_path, root, rep)
     check_sections(body, rep)
     check_ids(body, registry_ids(root), rep)
